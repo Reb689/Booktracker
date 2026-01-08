@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>100 Book Challenge – Desktop</title>
+
+<style>
+:root{
+  --purple:#6a0dad;
+  --green:#2e8b57;
+  --light:#f6f2fa;
+  --dark:#1e1b24;
+  --card:#2b2636;
+  --danger:#c0392b;
+}
+
+body{
+  font-family:Arial, sans-serif;
+  background:var(--light);
+  margin:0;
+  padding:20px;
+}
+
+body.dark{
+  background:var(--dark);
+  color:#eee;
+}
+
+.container{
+  max-width:1200px;
+  margin:auto;
+  background:white;
+  padding:24px;
+  border-radius:14px;
+}
+
+body.dark .container{background:var(--card)}
+
+h1{text-align:center;color:var(--purple);margin-bottom:6px}
+.goal{text-align:center;color:var(--green);margin-bottom:8px}
+
+/* Progress bar */
+.progress-bar{
+  background:#ddd;
+  height:12px;
+  border-radius:10px;
+  margin:10px 0 22px;
+  overflow:hidden;
+}
+#progressFill{
+  height:100%;
+  background:var(--green);
+  width:0%;
+  transition:width .3s;
+}
+
+/* Controls */
+.controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-bottom:16px;
+}
+
+input, select{
+  padding:10px 12px;
+  border-radius:8px;
+  border:2px solid var(--purple);
+  font-size:14px;
+}
+
+button{
+  background:var(--green);
+  color:white;
+  border:none;
+  border-radius:8px;
+  padding:10px 14px;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+.secondary{background:var(--purple)}
+.small{padding:6px 10px;font-size:12px}
+
+.delete-btn{background:var(--danger)}
+.edit-btn{background:var(--purple)}
+
+/* Books */
+.author{
+  border-left:5px solid var(--purple);
+  padding-left:14px;
+  margin-bottom:20px;
+}
+
+.author h3{
+  margin:0 0 8px;
+  color:var(--green);
+}
+
+.book{
+  background:#f2ecf9;
+  padding:10px;
+  border-radius:8px;
+  margin-bottom:8px;
+}
+
+body.dark .book{background:#3a3350}
+
+.book-row{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.book-info{flex:1}
+
+.meta{
+  font-size:12px;
+  opacity:.85;
+}
+
+.edit-row{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+footer{
+  text-align:center;
+  font-size:12px;
+  opacity:.7;
+  margin-top:24px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>📚 100 Book Challenge</h1>
+<div class="goal"><span id="count">0</span> / 100 finished</div>
+
+<div class="progress-bar">
+  <div id="progressFill"></div>
+</div>
+
+<!-- Filters -->
+<div class="controls">
+  <input id="search" placeholder="Search title or author" />
+  <select id="filterGenre"><option value="">All genres</option></select>
+  <select id="filterStatus">
+    <option value="">All status</option>
+    <option>To Read</option>
+    <option>Reading</option>
+    <option>Finished</option>
+  </select>
+  <button class="secondary" onclick="toggleDark()">🌙 Dark</button>
+</div>
+
+<!-- Add book -->
+<div class="controls">
+  <input id="titleInput" placeholder="Book title" />
+  <input id="authorInput" placeholder="Author" />
+  <select id="genreInput"></select>
+  <select id="statusInput">
+    <option>To Read</option>
+    <option>Reading</option>
+    <option selected>Finished</option>
+  </select>
+  <button onclick="addBook()">Add Book</button>
+</div>
+
+<main id="authors"></main>
+
+</div>
+
+<footer>Offline • Auto-saved • Desktop-ready reading app</footer>
+
+<script>
+const GENRES=[
+  "Fiction","Non-Fiction","Fantasy","Science Fiction","Mystery",
+  "Thriller","Romance","Biography","Self-Help","History","Other"
+];
+
+/* DOM */
+const searchInput=document.getElementById("search");
+const filterGenre=document.getElementById("filterGenre");
+const filterStatus=document.getElementById("filterStatus");
+const authorsEl=document.getElementById("authors");
+const countEl=document.getElementById("count");
+const progressFill=document.getElementById("progressFill");
+const titleInput=document.getElementById("titleInput");
+const authorInput=document.getElementById("authorInput");
+const genreInput=document.getElementById("genreInput");
+const statusInput=document.getElementById("statusInput");
+
+let data=JSON.parse(localStorage.getItem("booksDesktop"))||{};
+let dark=localStorage.getItem("dark")==="1";
+if(dark)document.body.classList.add("dark");
+
+/* Populate genres */
+GENRES.forEach(g=>{
+  genreInput.innerHTML+=`<option>${g}</option>`;
+  filterGenre.innerHTML+=`<option value="${g}">${g}</option>`;
+});
+
+searchInput.addEventListener("input",render);
+filterGenre.addEventListener("change",render);
+filterStatus.addEventListener("change",render);
+
+function save(){
+  localStorage.setItem("booksDesktop",JSON.stringify(data));
+}
+
+function toggleDark(){
+  dark=!dark;
+  document.body.classList.toggle("dark");
+  localStorage.setItem("dark",dark?"1":"0");
+}
+
+function addBook(){
+  const title=titleInput.value.trim();
+  const author=authorInput.value.trim();
+  if(!title||!author)return;
+
+  data[author]=data[author]||[];
+  data[author].push({title,genre:genreInput.value,status:statusInput.value});
+
+  titleInput.value="";
+  authorInput.value="";
+  save();
+  render();
+}
+
+function removeBook(author,index){
+  data[author].splice(index,1);
+  if(!data[author].length)delete data[author];
+  save();
+  render();
+}
+
+function editBook(author,index){
+  const book=data[author][index];
+  const el=document.getElementById(`book-${author}-${index}`);
+
+  el.innerHTML=`
+    <div class="edit-row">
+      <input id="et-${author}-${index}" value="${book.title}">
+      <select id="eg-${author}-${index}">
+        ${GENRES.map(g=>`<option ${g===book.genre?"selected":""}>${g}</option>`).join("")}
+      </select>
+      <select id="es-${author}-${index}">
+        ${["To Read","Reading","Finished"].map(s=>`<option ${s===book.status?"selected":""}>${s}</option>`).join("")}
+      </select>
+      <button class="small" onclick="saveEdit('${author}',${index})">Save</button>
+      <button class="small secondary" onclick="render()">Cancel</button>
+    </div>`;
+}
+
+function saveEdit(author,index){
+  data[author][index]={
+    title:document.getElementById(`et-${author}-${index}`).value,
+    genre:document.getElementById(`eg-${author}-${index}`).value,
+    status:document.getElementById(`es-${author}-${index}`).value
+  };
+  save();
+  render();
+}
+
+function render(){
+  const q=searchInput.value.toLowerCase();
+  const genre=filterGenre.value;
+  const status=filterStatus.value;
+
+  authorsEl.innerHTML="";
+  let finished=0;
+
+  Object.entries(data).forEach(([author,books])=>{
+    const filtered=books
+      .map((b,i)=>({...b,index:i}))
+      .filter(b=>{
+        if(genre && b.genre!==genre)return false;
+        if(status && b.status!==status)return false;
+        if(q && !(b.title.toLowerCase().includes(q)||author.toLowerCase().includes(q)))return false;
+        return true;
+      });
+
+    if(!filtered.length)return;
+
+    const div=document.createElement("div");
+    div.className="author";
+    div.innerHTML=`<h3>${author}</h3>`;
+
+    filtered.forEach(b=>{
+      if(b.status==="Finished")finished++;
+      div.innerHTML+=`
+        <div class="book" id="book-${author}-${b.index}">
+          <div class="book-row">
+            <div class="book-info">
+              <strong>${b.title}</strong>
+              <div class="meta">${b.genre} | ${b.status}</div>
+            </div>
+            <button class="small edit-btn" onclick="editBook('${author}',${b.index})">✏️</button>
+            <button class="small delete-btn" onclick="removeBook('${author}',${b.index})">✕</button>
+          </div>
+        </div>`;
+    });
+
+    authorsEl.appendChild(div);
+  });
+
+  countEl.textContent=finished;
+  progressFill.style.width=Math.min(finished,100)+"%";
+}
+
+render();
+</script>
+</body>
+</html>
